@@ -2,9 +2,16 @@ import { useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
+import { Client as NotionClient } from "@notionhq/client"
+
+
+const notion = new NotionClient({
+  auth: import.meta.env.NOTION_ACCESS_TOKEN,
+});
 
 function App() {
   const [count, setCount] = useState(0)
+  console.log(notion)
 
   return (
     <>
