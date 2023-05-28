@@ -1,17 +1,27 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
 import { Client as NotionClient } from "@notionhq/client"
 
-
-const notion = new NotionClient({
+const notionClient = new NotionClient({
   auth: import.meta.env.NOTION_ACCESS_TOKEN,
 });
 
 function App() {
   const [count, setCount] = useState(0)
-  console.log(notion)
+  
+  const getDatabase = async () => {
+    const dbId = "b7585f4bb96348f88d7c7869fb70f267"
+    const response = await notionClient.databases.query({
+      database_id: dbId,
+    });
+    console.log(response);
+  }
+
+  useEffect(() => {
+    getDatabase()
+  }, [])
 
   return (
     <>
