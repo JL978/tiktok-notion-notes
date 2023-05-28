@@ -29,15 +29,46 @@ chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
 	console.log(tab)
 	if (!url?.includes("tiktok")) return;
 
-	const { channel, videoId } = getVidInfo(url);
-	console.log(channel, videoId)
+	try {
+		const { channel, videoId } = getVidInfo(url);
+		console.log(channel, videoId)
 
-	fetch(API_URL, {
-		method: "GET",
-	})
-		.then(res => res.json())
-		.then(data => console.log(data))
-		.catch(err => console.log(err))
+		fetch(API_URL, {
+			method: "GET",
+		})
+			.then(res => res.json())
+			.then(data => console.log(data))
+			.catch(err => console.log(err))
 
-	// check if video is already in database
+		const getDivFunc = (channel, videoId) => {
+				console.log("HELLO FROM GETDIVFUNC")
+				// delete old div
+				const oldDiv = document.getElementById("tiktok-notion");
+				if (oldDiv) {
+					oldDiv.remove();
+				}
+
+				const div = document.createElement("div");
+				div.id = "tiktok-notion";
+				div.style.position = "fixed";
+				div.style.top = "10px";
+				div.style.left = "10px";
+				div.style.zIndex = 1000;
+				div.style.backgroundColor = "white";
+				div.style.padding = "10px";
+				div.innerHTML = `${channel}: ${videoId}`;
+
+				document.body.appendChild(div);
+		}
+
+		// add items on screen
+		chrome.scripting.executeScript({
+			target: { tabId: tabId },
+			function: getDivFunc,
+			args: [channel, videoId]
+		});
+		// check if video is already in database
+	} catch (err) {
+		console.log(err);
+	}
 });
