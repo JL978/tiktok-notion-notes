@@ -15,12 +15,29 @@ const { Client } = require('@notionhq/client');
 
 const client = new Client({ auth: process.env.NOTION_ACCESS_TOKEN });
 
-app.get('/', async (req, res) => {
-  const databaseId = "98d27aa51b2b4d668777b3998b3652a6";
+const databaseId = "98d27aa51b2b4d668777b3998b3652a6";
+
+app.get('/db', async (req, res) => {
   const response = await client.databases.retrieve({
     database_id: databaseId,
   });
   res.send(response);
 });
+
+app.get('/queryDb', async (req, res) => {
+  const { url } = req.query;
+  
+  const response = await client.databases.query({
+    database_id: databaseId,
+    filter: {
+      property: 'url',
+      url: {
+        equals: url
+      }
+    }
+  });
+
+  res.send(response);
+})
 
 server.listen(port, () => console.log(`Example app listening on port ${port}!`));
