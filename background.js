@@ -23,7 +23,7 @@ const getVidInfo = (url) => {
 	return { channel, videoId };
 }
 
-const createWidget = (channel, videoId, tags) => {
+const createWidget = (channel, videoId, tags, videoData) => {
 	const container = document.createElement("div");
 	container.id = "tiktok-notion";
 
@@ -40,6 +40,16 @@ const createWidget = (channel, videoId, tags) => {
 	const notesField = document.createElement("textarea");
 	notesField.id = "tiktok-notes";
 	notesField.placeholder = "Notes";
+
+	const notes = videoData?.results[0]?.properties?.Notes?.rich_text[0]?.plain_text;
+	console.log(videoData)
+	console.log(notes)
+	if (notes) {
+		notes.replace(/\n/g, "<br>");
+		notesField.value = notes;
+	}
+
+	const selectedTags = videoData?.results[0]?.properties?.Tags?.multi_select;
 
 	container.appendChild(title);
 	container.appendChild(notesField);
@@ -67,6 +77,10 @@ const createWidget = (channel, videoId, tags) => {
 		tagCheckbox.style.marginRight = "5px";
 		tagCheckbox.style.cursor = "pointer";
 		tagCheckbox.style.backgroundColor = tag.color;
+
+		if (selectedTags?.find(selectedTag => selectedTag.id === tag.id)) {
+			tagCheckbox.checked = true;
+		}
 		
 		const tagLabel = document.createElement("label");
 		tagLabel.htmlFor = tag.id + "-checkbox";
@@ -90,11 +104,16 @@ const getDb = async () => {
 	return data;
 }
 
+const getVideoData = async (url) => {
+	const res = await fetch(API_URL + "/queryDb" + `?url=${url}`)
+	const data = await res.json();
+	return data;
+}
+
 chrome.action.onClicked.addListener(function (tab) {
 	chrome.storage.sync.get("widgetEnabled", async (data) => {
 		const widgetEnabled = !data.widgetEnabled;
 		chrome.storage.sync.set({ widgetEnabled });
-		console.log(widgetEnabled)
 
 		chrome.scripting.executeScript({
 			target: { tabId: tab.id },
@@ -105,31 +124,24 @@ chrome.action.onClicked.addListener(function (tab) {
 				}
 			}
 		});
-		
+
 		if (widgetEnabled) {
 			const url = tab.url;
 			if (!url?.includes("tiktok")) return;
 
 			try {
 				const { channel, videoId } = getVidInfo(url);
-				console.log(channel, videoId)
 
 				const db = await getDb();
 
 				const tags = db.properties.Tags.multi_select.options
-				console.log(tags)
-
-
-				fetch(API_URL + "/queryDb" + `?url=${url}`)
-					.then(res => res.json())
-					.then(data => console.log(data))
-					.catch(err => console.log(err))
+				const videoData = await getVideoData(url);
 
 				// add items on screen
 				chrome.scripting.executeScript({
 					target: { tabId: tab.id },
 					function: createWidget,
-					args: [channel, videoId, tags]
+					args: [channel, videoId, tags, videoData]
 				});
 				// check if video is already in database
 			} catch (err) {
