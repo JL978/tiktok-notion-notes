@@ -1,7 +1,7 @@
-// chrome.runtime.onInstalled.addListener(() => {
-// 	chrome.storage.sync.set({ color });
-// 	console.log("Default background color set to %cgreen", `color: ${color}`);
-// });
+chrome.runtime.onInstalled.addListener(() => {
+	chrome.storage.sync.set({ widgetEnabled: false });
+});
+
 const API_URL = "http://tt-notion.fly.dev"
 
 const getVidInfo = (url) => {
@@ -46,44 +46,47 @@ const createWidget = (channel, videoId) => {
 	document.body.appendChild(container);
 }
 
-// on url change
-chrome.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
-	if (changeInfo.status !== "complete") return;
+chrome.action.onClicked.addListener(function (tab) {
+	chrome.storage.sync.get("widgetEnabled", (data) => {
+		const widgetEnabled = !data.widgetEnabled;
+		chrome.storage.sync.set({ widgetEnabled });
+		console.log(widgetEnabled)
 
-	chrome.scripting.executeScript({
-		target: { tabId: tabId },
-		function: () => {
-			const oldWidget = document.getElementById("tiktok-notion");
-			if (oldWidget) {
-				oldWidget.remove();
+		if (!widgetEnabled) {
+			chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: () => {
+					const oldWidget = document.getElementById("tiktok-notion");
+					if (oldWidget) {
+						oldWidget.remove();
+					}
+				}
+			});
+		} else {
+			const url = tab.url;
+			if (!url?.includes("tiktok")) return;
+
+			try {
+				const { channel, videoId } = getVidInfo(url);
+				console.log(channel, videoId)
+
+				fetch(API_URL, {
+					method: "GET",
+				})
+					.then(res => res.json())
+					.then(data => console.log(data))
+					.catch(err => console.log(err))
+
+				// add items on screen
+				chrome.scripting.executeScript({
+					target: { tabId: tab.id },
+					function: createWidget,
+					args: [channel, videoId]
+				});
+				// check if video is already in database
+			} catch (err) {
+				console.log(err);
 			}
 		}
-	});
-
-	// check if url is tiktok
-	const url = tab.url;
-	console.log(tab)
-	if (!url?.includes("tiktok")) return;
-
-	try {
-		const { channel, videoId } = getVidInfo(url);
-		console.log(channel, videoId)
-
-		fetch(API_URL, {
-			method: "GET",
-		})
-			.then(res => res.json())
-			.then(data => console.log(data))
-			.catch(err => console.log(err))
-
-		// add items on screen
-		chrome.scripting.executeScript({
-			target: { tabId: tabId },
-			function: createWidget,
-			args: [channel, videoId]
-		});
-		// check if video is already in database
-	} catch (err) {
-		console.log(err);
-	}
+	})
 });
