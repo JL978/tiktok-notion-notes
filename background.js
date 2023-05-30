@@ -5,25 +5,24 @@ chrome.runtime.onInstalled.addListener(() => {
 // const API_URL = "http://tt-notion.fly.dev"
 const API_URL = "http://localhost:8080"
 
-const getVidInfo = (url) => {
-	// tiktok video url format: https://www.tiktok.com/[channelName]/video/[videoId]
-	// Check correct url format
-
+const verifyUrl = (url) => {
 	const urlRegex = /https:\/\/www.tiktok.com\/@(.*)\/video\/(.*)/;
 	const test = url.match(urlRegex);
 	if (!test) {
 		throw new Error("Invalid TikTok URL");
 	}
+}
 
-	const channelRegex = /@(.*)\/video/;
-	const channel = url.match(channelRegex)[1];
+const getVidInfo = (url) => {
+	verifyUrl(url);
 
+	const channel = url.match(/@(.*)\/video/)[1];
 	const videoId = url.split("/").pop();
 	
 	return { channel, videoId };
 }
 
-const createWidget = (channel, videoId, tags, videoData) => {
+const createWidget = (tags, videoData) => {
 	const container = document.createElement("div");
 	container.id = "tiktok-notion";
 
@@ -110,43 +109,72 @@ const getVideoData = async (url) => {
 	return data;
 }
 
+const handleWidget = async (widgetEnabled, tab) => {
+	chrome.scripting.executeScript({
+		target: { tabId: tab.id },
+		function: () => {
+			const oldWidget = document.getElementById("tiktok-notion");
+			if (oldWidget) {
+				oldWidget.remove();
+			}
+		}
+	});
+
+	if (widgetEnabled) {
+		const url = tab.url;
+		if (!url?.includes("tiktok")) return;
+
+		try {
+			const db = await getDb();
+
+			const tags = db.properties.Tags.multi_select.options
+			const videoData = await getVideoData(url);
+
+			// add items on screen
+			chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: createWidget,
+				args: [tags, videoData]
+			});
+			// check if video is already in database
+		} catch (err) {
+			console.log(err);
+		}
+	}
+}
+
 chrome.action.onClicked.addListener(function (tab) {
 	chrome.storage.sync.get("widgetEnabled", async (data) => {
 		const widgetEnabled = !data.widgetEnabled;
 		chrome.storage.sync.set({ widgetEnabled });
 
-		chrome.scripting.executeScript({
-			target: { tabId: tab.id },
-			function: () => {
-				const oldWidget = document.getElementById("tiktok-notion");
-				if (oldWidget) {
-					oldWidget.remove();
-				}
-			}
-		});
-
-		if (widgetEnabled) {
-			const url = tab.url;
-			if (!url?.includes("tiktok")) return;
-
-			try {
-				const { channel, videoId } = getVidInfo(url);
-
-				const db = await getDb();
-
-				const tags = db.properties.Tags.multi_select.options
-				const videoData = await getVideoData(url);
-
-				// add items on screen
-				chrome.scripting.executeScript({
-					target: { tabId: tab.id },
-					function: createWidget,
-					args: [channel, videoId, tags, videoData]
-				});
-				// check if video is already in database
-			} catch (err) {
-				console.log(err);
-			}
-		}
+		handleWidget(widgetEnabled, tab);
 	})
+});
+
+const tabUpdateHandler = (tab) => {
+	try {
+		verifyUrl(tab.url);
+	} catch (err) {
+		return;
+	}
+
+	chrome.storage.sync.get("widgetEnabled", async (data) => {
+		const widgetEnabled = data.widgetEnabled;
+		handleWidget(widgetEnabled, tab);
+	});
+}
+
+// when url in current tab changes
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+	if (changeInfo.status !== "complete") return;
+
+	tabUpdateHandler(tab);
+});
+
+// when new tab is selected
+chrome.tabs.onActivated.addListener((activeInfo) => {
+	chrome.tabs.get(activeInfo.tabId, (tab) => {
+		tabUpdateHandler(tab);
+	});
 });
