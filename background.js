@@ -23,7 +23,9 @@ const getVidInfo = (url) => {
 	return { channel, videoId };
 }
 
-const createWidget = (tags, videoData) => {
+// This is injected into the page so it won't have access to any global variables in this file
+// TODO: move this to a separate file
+const createWidget = (tags, videoData, API_URL) => {
 	const TEXT_COLORS = {
 		default: "#32302c",
 		gray: "#32302c",
@@ -117,7 +119,6 @@ const createWidget = (tags, videoData) => {
 				tagContainer.style.backgroundColor = "transparent";
 			}
 
-			console.log(tagsContainer)
 			const tags = Array.from(tagsContainer.children).filter(child => child.children[0]?.checked);
 
 			const tagIds = new Set(tags.map(tag => tag.children[0].id))
@@ -151,8 +152,42 @@ const createWidget = (tags, videoData) => {
 		}
 	})
 
+	console.log(videoData)
 
+	button.addEventListener("click", async () => {
+		// get selected tags name
+		const tags = Array.from(tagsContainer.children)
+			.filter(child => child.children[0]?.checked)
+			.map(child => ({
+				name: child.childNodes[0]?.nodeValue
+		}));
 		
+		const notes = notesField.value;
+
+		// convert notes back to plain text
+		notes.replace(/<br>/g, "\n");
+		
+		const data = {
+			tags,
+			notes,
+			pageId: videoData.results[0]?.id,
+		}
+
+		const res = await fetch(API_URL + "/updateDb", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify(data),
+		});
+
+		const updatedVideoData = await res.json();
+
+		console.log(updatedVideoData);
+
+		button.disabled = true;
+	})
+
 	container.appendChild(tagsContainer);
 	container.appendChild(button);
 
@@ -197,7 +232,7 @@ const handleWidget = async (widgetEnabled, tab) => {
 			chrome.scripting.executeScript({
 				target: { tabId: tab.id },
 				function: createWidget,
-				args: [tags, videoData]
+				args: [tags, videoData, API_URL]
 			});
 			// check if video is already in database
 		} catch (err) {

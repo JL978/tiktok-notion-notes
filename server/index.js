@@ -40,4 +40,30 @@ app.get('/queryDb', async (req, res) => {
   res.send(response);
 })
 
+app.post("/updateDb", async (req, res) => {
+  const { pageId, tags, notes } = req.body;
+
+  if (!pageId) {
+    res.status(400).send("No pageId provided");
+  }
+
+  const response = await client.pages.update({
+    page_id: pageId,
+    properties: {
+      Tags: {
+        multi_select: tags || []
+      },
+      Notes: {
+        rich_text: [{
+          text: {
+            content: notes || ""
+          }
+        }] 
+      }
+    }
+  });
+
+  res.send(response);
+})
+
 server.listen(port, () => console.log(`Example app listening on port ${port}!`));
