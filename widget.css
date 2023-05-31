@@ -46,7 +46,7 @@
     display: none;
 }
 
-.UpdateButton {
+.TTNotionButton {
     margin-top: 0.5rem;
     padding: 0.25rem 0.65rem;
     border-radius: 0.35rem;
@@ -57,14 +57,14 @@
     font-size: 0.9rem;
 }
 
-.UpdateButton:hover {
+.TTNotionButton:hover {
     cursor: pointer;
 }
 
-.UpdateButton:disabled {
+.TTNotionButton:disabled {
     opacity: 0.5;
 }
 
-.UpdateButton:disabled:hover {
+.TTNotionButton:disabled:hover {
     cursor: not-allowed;
 }

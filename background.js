@@ -22,6 +22,37 @@ const getVidInfo = (url) => {
 	return { channel, videoId };
 }
 
+const createWidgetWithEmptyData = () => {
+	let container = document.querySelector(".WidgetContainer");
+
+	if (!container) {
+		container = document.createElement("div");
+		container.id = "tiktok-notion"
+		container.classList.add("WidgetContainer");
+
+		document.body.appendChild(container);
+	} 
+		
+	container.innerHTML = "";
+	const createButton = document.createElement("button");
+	createButton.innerHTML = "Create New Notes";
+	createButton.classList.add("TTNotionButton");
+
+	const listener = () => {
+		createButton.disabled = true;
+		createButton.innerHTML = "Creating...";
+
+		// send to background script
+		chrome.runtime.sendMessage({ type: "createPage" }, () => {
+			createButton.removeEventListener("click", listener);
+		})
+	}
+
+	createButton.addEventListener("click", listener);
+
+	container.appendChild(createButton);
+}
+
 
 // This is injected into the page so it won't have access to any global variables in this file
 // TODO: move this to a separate file
@@ -58,6 +89,7 @@ const createWidget = (tags, videoData, API_URL) => {
 		container = document.createElement("div");
 		container.id = "tiktok-notion"
 		container.classList.add("WidgetContainer");
+		document.body.appendChild(container)
 	} else {
 		container.innerHTML = "";
 	}
@@ -141,7 +173,7 @@ const createWidget = (tags, videoData, API_URL) => {
 	const button = document.createElement("button");
 	button.innerHTML = "Update";
 	button.disabled = true;
-	button.classList.add("UpdateButton");
+	button.classList.add("TTNotionButton");
 
 
 	button.addEventListener("click", async () => {
@@ -188,7 +220,6 @@ const createWidget = (tags, videoData, API_URL) => {
 	container.appendChild(notesField);
 	container.appendChild(button);
 
-	document.body.appendChild(container);
 }
 
 const getDb = async () => {
@@ -241,10 +272,12 @@ const handleWidget = async (widgetEnabled, tab) => {
 			const tags = db.properties.Tags.multi_select.options
 			const videoData = await getVideoData(url);
 
+			const urlDoesNotExist = videoData.results.length === 0;
+
 			// add items on screen
 			chrome.scripting.executeScript({
 				target: { tabId: tab.id },
-				function: createWidget,
+				function: urlDoesNotExist ? createWidgetWithEmptyData : createWidget,
 				args: [tags, videoData, API_URL]
 			});
 			// check if video is already in database
@@ -255,6 +288,23 @@ const handleWidget = async (widgetEnabled, tab) => {
 		removeWidget(tab);
 	}
 }
+
+chrome.runtime.onMessage.addListener(async (request, sender, sendResponse) => {
+	if (request.type === "createPage") {
+		const res = await fetch(API_URL + "/addToDb", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				url: sender.tab.url,
+			}),
+		})
+		const data = await res.json();
+		sendResponse(data);
+		handleWidget(true, sender.tab)
+	}
+});
 
 chrome.action.onClicked.addListener(function (tab) {
 	chrome.storage.sync.get("widgetEnabled", async (data) => {
