@@ -54,20 +54,15 @@ const createWidget = (tags, videoData, API_URL) => {
 
 	const container = document.createElement("div");
 	container.id = "tiktok-notion";
-
-	container.style.position = "fixed";
-	container.style.top = "10px";
-	container.style.left = "10px";
-	container.style.zIndex = 1000;
-	container.style.backgroundColor = "white";
-	container.style.padding = "10px";
+	container.classList.add("WidgetContainer");
 	
 	const title = document.createElement("h1");
-	title.innerHTML = "TikTok Notes";
+	title.innerHTML = "Notes";
 
 	const notesField = document.createElement("textarea");
 	notesField.id = "tiktok-notes";
-	notesField.placeholder = "Notes";
+	notesField.classList.add("NotesField");
+	notesField.placeholder = "Thoughts on the video";
 
 	const notes = videoData?.results[0]?.properties?.Notes?.rich_text[0]?.plain_text || "";
 	if (notes) {
@@ -75,35 +70,36 @@ const createWidget = (tags, videoData, API_URL) => {
 		notesField.value = notes;
 	}
 
-	const selectedTags = videoData?.results[0]?.properties?.Tags?.multi_select;
+	notesField.addEventListener("input", (e) => {
+		const notesContent = e.target.value;
 
-	container.appendChild(title);
-	container.appendChild(notesField);
+		console.log(notesContent, notes)
+
+		if (notesContent !== notes) {
+			button.disabled = false;
+		} else {
+			button.disabled = true;
+		}
+	})
+
+
+	const tagsTitle = document.createElement("h1");
+	tagsTitle.innerHTML = "Tags";
 
 	// multi select tags
 	const tagsContainer = document.createElement("div");
-	tagsContainer.style.display = "flex";
-	tagsContainer.style.flexWrap = "wrap";
-	tagsContainer.style.marginTop = "10px";
+	tagsContainer.classList.add("TagsContainer");
 
-	const tagsTitle = document.createElement("h2");
-	tagsTitle.innerHTML = "Tags";
-	tagsTitle.style.marginRight = "10px";
-	tagsContainer.appendChild(tagsTitle);
-
+	const selectedTags = videoData?.results[0]?.properties?.Tags?.multi_select;
 	tags.forEach(tag => {
 		const tagContainer = document.createElement("label");
 		tagContainer.style.border = `1px solid ${TEXT_COLORS[tag.color]}`;
-		tagContainer.style.borderRadius = "1000px";
-		tagContainer.style.padding = "5px";
-		tagContainer.style.userSelect = "none";
 		tagContainer.style.color = TEXT_COLORS[tag.color];
 		
 		tagContainer.innerHTML = tag.name
 
 		const tagCheckbox = document.createElement("input");
 		tagCheckbox.type = "checkbox";
-		tagCheckbox.style.display = "none";
 
 		const isSelected = selectedTags?.find(selectedTag => selectedTag.id === tag.id);
 
@@ -139,20 +135,8 @@ const createWidget = (tags, videoData, API_URL) => {
 	const button = document.createElement("button");
 	button.innerHTML = "Update";
 	button.disabled = true;
+	button.classList.add("UpdateButton");
 
-	notesField.addEventListener("input", (e) => {
-		const notesContent = e.target.value;
-
-		console.log(notesContent, notes)
-
-		if (notesContent !== notes) {
-			button.disabled = false;
-		} else {
-			button.disabled = true;
-		}
-	})
-
-	console.log(videoData)
 
 	button.addEventListener("click", async () => {
 		// get selected tags name
@@ -188,7 +172,10 @@ const createWidget = (tags, videoData, API_URL) => {
 		button.disabled = true;
 	})
 
+	container.appendChild(tagsTitle);
 	container.appendChild(tagsContainer);
+	container.appendChild(title);
+	container.appendChild(notesField);
 	container.appendChild(button);
 
 	document.body.appendChild(container);
@@ -214,8 +201,13 @@ const handleWidget = async (widgetEnabled, tab) => {
 			if (oldWidget) {
 				oldWidget.remove();
 			}
-		}
+		},
 	});
+
+	chrome.scripting.insertCSS({
+		target: { tabId: tab.id },
+		files: ["./widget.css"],
+	})
 
 	if (widgetEnabled) {
 		const url = tab.url;
