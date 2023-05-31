@@ -67,9 +67,7 @@ const createWidget = (tags, videoData) => {
 	notesField.id = "tiktok-notes";
 	notesField.placeholder = "Notes";
 
-	const notes = videoData?.results[0]?.properties?.Notes?.rich_text[0]?.plain_text;
-	console.log(videoData)
-	console.log(notes)
+	const notes = videoData?.results[0]?.properties?.Notes?.rich_text[0]?.plain_text || "";
 	if (notes) {
 		notes.replace(/\n/g, "<br>");
 		notesField.value = notes;
@@ -105,7 +103,9 @@ const createWidget = (tags, videoData) => {
 		tagCheckbox.type = "checkbox";
 		tagCheckbox.style.display = "none";
 
-		if (selectedTags?.find(selectedTag => selectedTag.id === tag.id)) {
+		const isSelected = selectedTags?.find(selectedTag => selectedTag.id === tag.id);
+
+		if (isSelected) {
 			tagCheckbox.checked = true;
 			tagContainer.style.backgroundColor = TAG_COLORS[tag.color];
 		}
@@ -116,13 +116,45 @@ const createWidget = (tags, videoData) => {
 			} else {
 				tagContainer.style.backgroundColor = "transparent";
 			}
+
+			console.log(tagsContainer)
+			const tags = Array.from(tagsContainer.children).filter(child => child.children[0]?.checked);
+
+			const tagIds = new Set(tags.map(tag => tag.children[0].id))
+			const selectedTagsIds = new Set(selectedTags?.map(tag => tag.id) || [])
+			
+			//compare contents of tagIds and selectedTagsIds
+			if (tagIds.size === selectedTagsIds.size && Array.from(tagIds).every(tagId => selectedTagsIds.has(tagId))) {
+				button.disabled = true;
+			} else {
+				button.disabled = false;
+			}
 		})
-		
+
 		tagContainer.appendChild(tagCheckbox);
 		tagsContainer.appendChild(tagContainer);
 	});
 
+	const button = document.createElement("button");
+	button.innerHTML = "Update";
+	button.disabled = true;
+
+	notesField.addEventListener("input", (e) => {
+		const notesContent = e.target.value;
+
+		console.log(notesContent, notes)
+
+		if (notesContent !== notes) {
+			button.disabled = false;
+		} else {
+			button.disabled = true;
+		}
+	})
+
+
+		
 	container.appendChild(tagsContainer);
+	container.appendChild(button);
 
 	document.body.appendChild(container);
 }
