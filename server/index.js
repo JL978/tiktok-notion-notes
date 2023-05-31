@@ -40,6 +40,47 @@ app.get('/queryDb', async (req, res) => {
   res.send(response);
 })
 
+app.post("/addToDb", async (req, res) => {
+  const { url, title } = req.body;
+
+  if (!url) {
+    res.status(400).send("No url provided");
+  }
+
+  const response = await client.pages.create({
+    parent: {
+      database_id: databaseId,
+    },
+    properties: {
+      Name: {
+        title: [
+          {
+            text: {
+              content: title || ""
+            }
+          }
+        ]
+      },
+      url: {
+        url: url || ""
+      },
+      Tags: {
+        multi_select: []
+      },
+      Notes: {
+        rich_text: [{
+          text: {
+            content: ""
+          }
+        }]
+      }
+    }
+  });
+
+  res.send(response);
+})
+
+
 app.post("/updateDb", async (req, res) => {
   const { pageId, tags, notes } = req.body;
 

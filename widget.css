@@ -56,3 +56,15 @@
     font-weight: bold;
     font-size: 0.9rem;
 }
+
+.UpdateButton:hover {
+    cursor: pointer;
+}
+
+.UpdateButton:disabled {
+    opacity: 0.5;
+}
+
+.UpdateButton:disabled:hover {
+    cursor: not-allowed;
+}

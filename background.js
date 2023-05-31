@@ -6,22 +6,22 @@ chrome.runtime.onInstalled.addListener(() => {
 // const API_URL = "http://tt-notion.fly.dev"
 const API_URL = "http://localhost:8080"
 
-const verifyUrl = (url) => {
+const isCorrectTikTokURL = (url) => {
 	const urlRegex = /https:\/\/www.tiktok.com\/@(.*)\/video\/(.*)/;
-	const test = url.match(urlRegex);
-	if (!test) {
-		throw new Error("Invalid TikTok URL");
-	}
+	const test = urlRegex.test(url);
+
+	return test;
 }
 
 const getVidInfo = (url) => {
-	verifyUrl(url);
+	if (!isCorrectTikTokURL(url)) return null;
 
 	const channel = url.match(/@(.*)\/video/)[1];
 	const videoId = url.split("/").pop();
 	
 	return { channel, videoId };
 }
+
 
 // This is injected into the page so it won't have access to any global variables in this file
 // TODO: move this to a separate file
@@ -52,12 +52,18 @@ const createWidget = (tags, videoData, API_URL) => {
 		red: "rgb(255, 226, 221)",
 	}
 
-	const container = document.createElement("div");
-	container.id = "tiktok-notion";
-	container.classList.add("WidgetContainer");
-	
-	const title = document.createElement("h1");
-	title.innerHTML = "Notes";
+	let container = document.querySelector(".WidgetContainer");
+
+	if (!container) {
+		container = document.createElement("div");
+		container.id = "tiktok-notion"
+		container.classList.add("WidgetContainer");
+	} else {
+		container.innerHTML = "";
+	}
+
+	const notesTitle = document.createElement("h1");
+	notesTitle.innerHTML = "Notes";
 
 	const notesField = document.createElement("textarea");
 	notesField.id = "tiktok-notes";
@@ -157,6 +163,9 @@ const createWidget = (tags, videoData, API_URL) => {
 			pageId: videoData.results[0]?.id,
 		}
 
+		button.innerHTML = "Updating...";
+		button.disabled = true;
+
 		const res = await fetch(API_URL + "/updateDb", {
 			method: "POST",
 			headers: {
@@ -167,14 +176,15 @@ const createWidget = (tags, videoData, API_URL) => {
 
 		const updatedVideoData = await res.json();
 
+		if (!updatedVideoData.error) {
+			button.innerHTML = "Update";
+		} 
 		console.log(updatedVideoData);
-
-		button.disabled = true;
 	})
 
 	container.appendChild(tagsTitle);
 	container.appendChild(tagsContainer);
-	container.appendChild(title);
+	container.appendChild(notesTitle);
 	container.appendChild(notesField);
 	container.appendChild(button);
 
@@ -193,7 +203,7 @@ const getVideoData = async (url) => {
 	return data;
 }
 
-const handleWidget = async (widgetEnabled, tab) => {
+const removeWidget = (tab) => {
 	chrome.scripting.executeScript({
 		target: { tabId: tab.id },
 		function: () => {
@@ -203,7 +213,9 @@ const handleWidget = async (widgetEnabled, tab) => {
 			}
 		},
 	});
+}
 
+const handleWidget = async (widgetEnabled, tab) => {
 	chrome.scripting.insertCSS({
 		target: { tabId: tab.id },
 		files: ["./widget.css"],
@@ -214,10 +226,19 @@ const handleWidget = async (widgetEnabled, tab) => {
 		if (!url?.includes("tiktok")) return;
 
 		try {
+			chrome.scripting.executeScript({
+				target: { tabId: tab.id },
+				function: () => {
+					const oldWidget = document.getElementById("tiktok-notion");
+					if (oldWidget) {
+						oldWidget.innerHTML = "Loading...";
+					}
+				}
+			})
+
 			const db = await getDb();
 
 			const tags = db.properties.Tags.multi_select.options
-			console.log(db)
 			const videoData = await getVideoData(url);
 
 			// add items on screen
@@ -230,6 +251,8 @@ const handleWidget = async (widgetEnabled, tab) => {
 		} catch (err) {
 			console.log(err);
 		}
+	} else {
+		removeWidget(tab);
 	}
 }
 
@@ -242,15 +265,12 @@ chrome.action.onClicked.addListener(function (tab) {
 	})
 });
 
-const tabUpdateHandler = (tab) => {
-	try {
-		verifyUrl(tab.url);
-	} catch (err) {
-		return;
-	}
+const tabUpdateHandler = (tab, newTab) => {
+	if (!isCorrectTikTokURL(tab.url)) return;
 
 	chrome.storage.sync.get("widgetEnabled", async (data) => {
 		const widgetEnabled = data.widgetEnabled;
+		if (newTab && widgetEnabled) return;
 		handleWidget(widgetEnabled, tab);
 	});
 }
@@ -259,12 +279,12 @@ const tabUpdateHandler = (tab) => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 	if (changeInfo.status !== "complete") return;
 
-	tabUpdateHandler(tab);
+	tabUpdateHandler(tab, false);
 });
 
 // when new tab is selected
 chrome.tabs.onActivated.addListener((activeInfo) => {
 	chrome.tabs.get(activeInfo.tabId, (tab) => {
-		tabUpdateHandler(tab);
+		tabUpdateHandler(tab, true);
 	});
 });
